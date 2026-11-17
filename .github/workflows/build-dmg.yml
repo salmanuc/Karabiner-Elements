@@ -1,0 +1,42 @@
+name: Build dmg
+
+# Builds an UNSIGNED Karabiner-Elements dmg and uploads it as a workflow artifact.
+# Runs on every push to this branch, and can also be started manually.
+#
+# The upstream CI builds the same way (dummy signing identities) and does not
+# upload the dmg. An unsigned build can be inspected and downloaded, but the
+# background services require code signing, so it will not run as a working
+# installation. Sign it yourself (see README "How to build") if you need that.
+
+on:
+  push:
+    branches:
+      - dmg-build
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    env:
+      PQRS_ORG_ALLOW_MISSING_CODE_SIGN_IDENTITIES: "true"
+      PQRS_ORG_CODE_SIGN_IDENTITY: "dummy"
+      PQRS_ORG_INSTALLER_CODE_SIGN_IDENTITY: "dummy"
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: recursive
+      - name: brew install
+        run: brew install xcodegen
+      - name: package
+        run: make package
+      - name: list output
+        run: ls -la *.dmg
+      - name: upload dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: Karabiner-Elements-dmg
+          path: Karabiner-Elements-*.dmg
+          if-no-files-found: error
+          retention-days: 14
