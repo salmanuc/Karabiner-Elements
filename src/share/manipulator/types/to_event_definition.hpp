@@ -112,7 +112,7 @@ public:
     return result;
   }
 
-  // Returns a copy of `base` in which `${key_code}` in `shell_command` or `set_notification_message.text`
+  // Returns a copy of `base` in which `{{key_code}}` in `shell_command` or `set_notification_message.text`
   // is replaced with the name of `pressed_event` (e.g. `tab`, `f12`, `button1`).
   //
   // Returns std::nullopt if `base` is of another type or if nothing was replaced,

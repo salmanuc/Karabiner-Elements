@@ -17,7 +17,7 @@ enum class to_if_alone_cancellation {
   required,
 };
 
-// Expand `${key_code}` in `shell_command` and `set_notification_message.text`
+// Expand `{{key_code}}` in `shell_command` and `set_notification_message.text`
 // using the key that triggered the manipulator (the first momentary switch event of the `from` events).
 // `to` is returned as it is if there is nothing to expand.
 inline pqrs::not_null_shared_ptr_t<to_event_definition> expand_variables(

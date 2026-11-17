@@ -1,7 +1,11 @@
 #pragma once
 
-// Expansion of `${name}` placeholders in the string parameters of `to` events
+// Expansion of `{{name}}` placeholders in the string parameters of `to` events
 // (`shell_command` and `set_notification_message.text`).
+//
+// The `{{...}}` syntax is used because it has no special meaning in `/bin/sh`
+// (unlike `$name`, `${name}`, `$(...)` or `$[...]`), so it does not collide with
+// anything that already appears in real shell commands.
 //
 // This header intentionally depends only on the standard library so that it can be unit tested in isolation.
 
@@ -34,20 +38,26 @@ using variables = std::vector<std::pair<std::string_view, std::string_view>>;
   return true;
 }
 
-// Replace each `${name}` in `text` with the value of `name` in `variables`.
+// Replace each `{{name}}` in `text` with the value of `name` in `variables`.
+// Spaces and tabs around `name` are ignored, so `{{ key_code }}` is the same as `{{key_code}}`.
 //
 // A placeholder is left exactly as written when
-// - `name` is not in `variables` (so existing shell variables such as `${HOME}` keep working), or
+// - `name` is not in `variables`, or
 // - the value is not safe (see `is_safe_value`), or
-// - the placeholder is not terminated by `}`.
+// - the placeholder is not terminated by `}}`.
+//
+// Nothing else is touched. In particular `$name`, `${name}` and other shell syntax are never expanded.
 [[nodiscard]] inline std::string expand(const std::string& text,
                                         const variables& variables) {
+  constexpr std::string_view open_token = "{{";
+  constexpr std::string_view close_token = "}}";
+
   std::string result;
   result.reserve(text.size());
 
   std::size_t pos = 0;
   while (pos < text.size()) {
-    auto open = text.find("${", pos);
+    auto open = text.find(open_token, pos);
     if (open == std::string::npos) {
       result.append(text, pos, std::string::npos);
       break;
@@ -55,14 +65,21 @@ using variables = std::vector<std::pair<std::string_view, std::string_view>>;
 
     result.append(text, pos, open - pos);
 
-    auto close = text.find('}', open + 2);
+    auto name_begin = open + open_token.size();
+    auto close = text.find(close_token, name_begin);
     if (close == std::string::npos) {
       // Unterminated placeholder: copy the rest as-is.
       result.append(text, open, std::string::npos);
       break;
     }
 
-    std::string_view name(text.data() + open + 2, close - (open + 2));
+    std::string_view name(text.data() + name_begin, close - name_begin);
+    while (!name.empty() && (name.front() == ' ' || name.front() == '\t')) {
+      name.remove_prefix(1);
+    }
+    while (!name.empty() && (name.back() == ' ' || name.back() == '\t')) {
+      name.remove_suffix(1);
+    }
 
     bool replaced = false;
     for (const auto& [variable_name, value] : variables) {
@@ -73,11 +90,12 @@ using variables = std::vector<std::pair<std::string_view, std::string_view>>;
       }
     }
 
+    auto end = close + close_token.size();
     if (!replaced) {
-      result.append(text, open, close + 1 - open);
+      result.append(text, open, end - open);
     }
 
-    pos = close + 1;
+    pos = end;
   }
 
   return result;
